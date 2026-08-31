@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Native Classic | Liquid Glass & Parallel Infinite Ensō</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Serif+JP:wght@300;400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background-color: #030304;
+    color: #E8E6E1;
+    font-family: 'Cinzel', 'Noto Serif JP', serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #canvas-container {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0; left: 0;
+    cursor: grab;
+  }
+
+  #canvas-container:active {
+    cursor: grabbing;
+  }
+
+  /* Cinematic Vignette */
+  .vignette {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 30%, rgba(3,3,4,0.92) 100%);
+    z-index: 2;
+  }
+
+  /* Header Branding */
+  .brand-header {
+    position: absolute;
+    top: 28px;
+    left: 36px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .brand-title {
+    font-size: 15px;
+    letter-spacing: 0.38em;
+    color: #F0EEE9;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .brand-subtitle {
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    color: #8E8C84;
+    margin-top: 5px;
+    font-family: 'Noto Serif JP', serif;
+  }
+
+  /* Top Navigation Bar */
+  .nav-bar-container {
+    position: absolute;
+    top: 28px;
+    right: 36px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .controls-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .btn-nav {
+    background: rgba(18, 18, 20, 0.82);
+    border: 1px solid rgba(220, 218, 210, 0.22);
+    color: #D4D2C9;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    font-family: 'Cinzel', 'Noto Serif JP', serif;
+  }
+
+  .btn-nav:hover {
+    background: rgba(232, 230, 225, 0.95);
+    color: #030303;
+    border-color: #E8E6E1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);
+  }
+
+  .btn-nav.active {
+    background: rgba(232, 230, 225, 0.22);
+    border-color: #F0EEE9;
+    color: #FFFFFF;
+    box-shadow: 0 0 14px rgba(240, 238, 233, 0.25);
+  }
+
+  /* Tuning Panel (Bottom-Left) */
+  .tuning-panel {
+    position: absolute;
+    bottom: 34px;
+    left: 36px;
+    z-index: 10;
+    background: rgba(14, 14, 16, 0.78);
+    border: 1px solid rgba(220, 218, 210, 0.15);
+    border-radius: 12px;
+    padding: 16px 20px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tuning-title {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: #A6A49C;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 6px;
+    font-family: 'Noto Serif JP', serif;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #CCCAC2;
+    letter-spacing: 0.1em;
+  }
+
+  .slider-row label {
+    font-family: 'Noto Serif JP', serif;
+  }
+
+  .slider-row input[type=range] {
+    -webkit-appearance: none;
+    width: 130px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #E8E6E1;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .slider-row input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  /* Bottom Center Status Caption */
+  .ui-panel {
+    position: absolute;
+    bottom: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+    max-width: 600px;
+  }
+
+  .ui-mode-name {
+    font-size: 13.5px;
+    letter-spacing: 0.32em;
+    color: #F0EEE9;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .ui-mode-desc {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: #94928A;
+    line-height: 1.6;
+    font-family: 'Noto Serif JP', serif;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+  <div class="vignette"></div>
+
+  <div class="brand-header">
+    <div class="brand-title">Native Classic</div>
+    <div class="brand-subtitle">Liquid Glass & Parallel Infinite Ensō</div>
+  </div>
+
+  <div class="nav-bar-container">
+    <!-- Camera View Guidance Row -->
+    <div class="controls-row">
+      <button class="btn-nav btn-view-cam active" id="btnViewFront">【 1. 正面視点 (Solo) 】</button>
+      <button class="btn-nav btn-view-cam" id="btnViewSide">【 2. 側面・並列無限回廊 (Colony) 】</button>
+      <button class="btn-nav btn-view-cam" id="btnViewTop">【 3. 斜め俯瞰 (Angle) 】</button>
+      <button class="btn-nav" id="btnAutoRotate">自動回転: OFF</button>
+    </div>
+    <!-- Material Selection Row -->
+    <div class="controls-row">
+      <button class="btn-nav active" id="btnGlass">液体屈折ガラス (ykob)</button>
+      <button class="btn-nav" id="btnChrome">水銀・クローム鏡面</button>
+      <button class="btn-nav" id="btnObsidian">漆黒・黒曜石</button>
+      <button class="btn-nav" id="btnAurora">虹色オパール</button>
+    </div>
+  </div>
+
+  <div class="tuning-panel">
+    <div class="tuning-title">質感 & 並列うねり制御</div>
+    <div class="slider-row">
+      <label>波立ち・うねり</label>
+      <input type="range" id="paramDistort" min="0.0" max="25.0" value="10.0" step="0.5">
+    </div>
+    <div class="slider-row">
+      <label>流動スピード</label>
+      <input type="range" id="paramSpeed" min="0.0" max="2.0" value="0.45" step="0.05">
+    </div>
+    <div class="slider-row">
+      <label>並列間隔 (Spacing)</label>
+      <input type="range" id="paramSpacing" min="200" max="600" value="380" step="10">
+    </div>
+  </div>
+
+  <div class="ui-panel">
+    <div class="ui-mode-name" id="uiTitle">Frontal Solo View (正面・単一円相)</div>
+    <div class="ui-mode-desc" id="uiDesc">
+      正面では端正に集約された単一の液体円相。側面へ視点を変えると、奥行きへと無限に続く並列回廊が展開します。
+    </div>
+  </div>
+
+  <script>
+    let scene, camera, renderer, controls, pmremGenerator;
+    let ensoGroup;
+    let ensoRings = [];
+    const NUM_PARALLEL_RINGS = 13;
+    let ringSpacing = 380.0; // 1.8倍のゆとりある間隔
+
+    let backgroundScene, bgPlaneMesh;
+    let matGlass, matChrome, matObsidian, matAurora;
+    let currentMaterial;
+    const simplex = new SimplexNoise();
+
+    // Parameters
+    let autoRotate = false;
+    let distortAmp = 10.0;
+    let fluidSpeed = 0.45;
+    let timeAcc = 0;
+
+    // Camera Guidance & Depth Transition State
+    let currentViewMode = 'front';
+    let isCameraTransitioning = true;
+    let targetCameraPos = new THREE.Vector3(0, 0, 580);
+    let targetLookAt = new THREE.Vector3(0, 0, 0);
+
+    let depthSpread = 0.0;       // 0.0: consolidated at center, 1.0: fully spread in Z
+    let targetDepthSpread = 0.0;
+
+    // 1. Studio HDR Environment Scene
+    function createStudioEnvironment() {
+      const envScene = new THREE.Scene();
+
+      // Ambient fill
+      const amb = new THREE.AmbientLight(0xFFFFFF, 0.5);
+      envScene.add(amb);
+
+      // Key Softbox Light Box
+      const softboxGeo = new THREE.PlaneGeometry(900, 700);
+      const softboxMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+      const softboxMesh = new THREE.Mesh(softboxGeo, softboxMat);
+      softboxMesh.position.set(450, 500, 500);
+      softboxMesh.lookAt(0, 0, 0);
+      envScene.add(softboxMesh);
+
+      // Sharp Rim Stripe Light (Gives crisp refraction and metallic reflections)
+      const rimGeo = new THREE.PlaneGeometry(250, 1400);
+      const rimMat = new THREE.MeshBasicMaterial({ color: 0xD8EAFF });
+      const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+      rimMesh.position.set(-650, 0, -400);
+      rimMesh.lookAt(0, 0, 0);
+      envScene.add(rimMesh);
+
+      // Warm Bottom Ground Light
+      const groundGeo = new THREE.PlaneGeometry(1200, 1200);
+      const groundMat = new THREE.MeshBasicMaterial({ color: 0x998877 });
+      const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+      groundMesh.position.set(0, -600, 200);
+      groundMesh.rotation.x = -Math.PI / 2;
+      envScene.add(groundMesh);
+
+      // Pure clean studio environment without background text
+
+      const renderTarget = pmremGenerator.fromScene(envScene);
+      return renderTarget.texture;
+    }
+
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x030304, 0.0003);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 6000);
+      camera.position.set(0, 0, 580);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x030304, 1.0);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.25;
+      container.appendChild(renderer.domElement);
+
+      pmremGenerator = new THREE.PMREMGenerator(renderer);
+      pmremGenerator.compileEquirectangularShader();
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxDistance = 3500;
+      controls.minDistance = 80;
+
+      controls.addEventListener('start', () => {
+        isCameraTransitioning = false;
+      });
+
+      // Lighting for MeshPhysicalMaterial
+      const ambLight = new THREE.AmbientLight(0xFFFFFF, 0.6);
+      scene.add(ambLight);
+
+      const mainLight = new THREE.DirectionalLight(0xFFFFFF, 1.8);
+      mainLight.position.set(300, 450, 400);
+      scene.add(mainLight);
+
+      const rimLight = new THREE.DirectionalLight(0xD8E8FF, 1.4);
+      rimLight.position.set(-450, -100, -300);
+      scene.add(rimLight);
+
+      const bottomLight = new THREE.PointLight(0xCCA87A, 0.8, 1200);
+      bottomLight.position.set(0, -350, 200);
+      scene.add(bottomLight);
+
+      // Generate HDR studio environment map
+      const envTexture = createStudioEnvironment();
+      scene.environment = envTexture;
+
+      // Define Materials (Same high-fidelity texture across all rings)
+      // 1. ykob Style True Refractive Liquid Glass
+      matGlass = new THREE.MeshPhysicalMaterial({
+        color: 0xFFFFFF,
+        transmission: 0.95,
+        opacity: 1.0,
+        transparent: true,
+        roughness: 0.0,
+        metalness: 0.0,
+        ior: 1.52,
+        thickness: 42.0,
+        attenuationColor: new THREE.Color(0xF0F4FF),
+        attenuationDistance: 160.0,
+        reflectivity: 0.65,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        envMapIntensity: 2.2
+      });
+
+      // 2. Liquid Molten Mirror Chrome
+      matChrome = new THREE.MeshStandardMaterial({
+        color: 0xF7F7F7,
+        roughness: 0.02,
+        metalness: 0.98,
+        envMapIntensity: 2.2
+      });
+
+      // 3. Obsidian Deep Black Glass
+      matObsidian = new THREE.MeshPhysicalMaterial({
+        color: 0x0A0A0C,
+        transmission: 0.35,
+        transparent: true,
+        roughness: 0.04,
+        metalness: 0.2,
+        ior: 1.6,
+        thickness: 30.0,
+        clearcoat: 1.0,
+        envMapIntensity: 1.8
+      });
+
+      // 4. Iridescent Aurora Opal
+      matAurora = new THREE.MeshPhysicalMaterial({
+        color: 0xF2EFFF,
+        transmission: 0.82,
+        transparent: true,
+        roughness: 0.06,
+        metalness: 0.1,
+        ior: 1.48,
+        thickness: 40.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+        envMapIntensity: 2.6
+      });
+
+      currentMaterial = matGlass;
+
+      // Create Parallel Rings System
+      // Refined Torus proportions: Radius 150, Tube 44, Radial 56, Tubular 160 (sleek, elegant, airy)
+      ensoGroup = new THREE.Group();
+      scene.add(ensoGroup);
+
+      for (let k = 0; k < NUM_PARALLEL_RINGS; k++) {
+        const geometry = new THREE.TorusGeometry(150, 44, 56, 160);
+        const origPos = geometry.attributes.position.clone();
+        const origNorm = geometry.attributes.normal.clone();
+
+        const mesh = new THREE.Mesh(geometry, currentMaterial);
+
+        const indexOffset = k - Math.floor(NUM_PARALLEL_RINGS / 2);
+        mesh.userData = {
+          originalPositions: origPos,
+          originalNormals: origNorm,
+          indexOffset: indexOffset,
+          phaseShift: k * 0.4
+        };
+
+        ensoGroup.add(mesh);
+        ensoRings.push(mesh);
+      }
+
+      setupEvents();
+    }
+
+    function switchMaterial(newMat, btnId, title, desc) {
+      currentMaterial = newMat;
+      ensoRings.forEach(ring => {
+        ring.material = currentMaterial;
+      });
+      document.querySelectorAll('.controls-row:nth-child(2) .btn-nav').forEach(b => b.classList.remove('active'));
+      document.getElementById(btnId).classList.add('active');
+      document.getElementById('uiTitle').textContent = title;
+      document.getElementById('uiDesc').textContent = desc;
+    }
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      isCameraTransitioning = true;
+      document.querySelectorAll('.btn-view-cam').forEach(b => b.classList.remove('active'));
+
+      if (mode === 'front') {
+        document.getElementById('btnViewFront').classList.add('active');
+        targetCameraPos.set(0, 0, 580);
+        targetLookAt.set(0, 0, 0);
+        targetDepthSpread = 0.0; // Consolidate at center into single clean Ensō
+        document.getElementById('uiTitle').textContent = "Frontal Solo View (正面・単一円相)";
+        document.getElementById('uiDesc').textContent = "正面では中央に美しく集約された単一の液体円相。静謐なフォルムと光沢の美しさを鑑賞。";
+      } else if (mode === 'side') {
+        document.getElementById('btnViewSide').classList.add('active');
+        // Side view framing: positioned so near and far ends extend past screen boundaries
+        targetCameraPos.set(820, 110, 220);
+        targetLookAt.set(0, 0, 0);
+        targetDepthSpread = 1.0; // Expand parallel rings into infinite corridor
+        document.getElementById('uiTitle').textContent = "Side Parallel Infinite Corridor (側面・並列無限回廊)";
+        document.getElementById('uiDesc').textContent = "ゆとりある間隔で画面外へと見切れながら奥深く続く、壮大な液体円相インスタレーション。";
+      } else if (mode === 'top') {
+        document.getElementById('btnViewTop').classList.add('active');
+        targetCameraPos.set(520, 750, 800);
+        targetLookAt.set(0, 0, 0);
+        targetDepthSpread = 0.9;
+        document.getElementById('uiTitle').textContent = "Dynamic Perspective (斜め俯瞰・ダイナミック)";
+        document.getElementById('uiDesc').textContent = "斜め上方から見下ろす立体的なパースペクティブ。どこまでも広がる並列回廊の圧倒的なスケール感を体感。";
+      }
+    }
+
+    function setupEvents() {
+      // Camera guidance buttons
+      document.getElementById('btnViewFront').addEventListener('click', () => setViewMode('front'));
+      document.getElementById('btnViewSide').addEventListener('click', () => setViewMode('side'));
+      document.getElementById('btnViewTop').addEventListener('click', () => setViewMode('top'));
+
+      // Material buttons
+      document.getElementById('btnGlass').addEventListener('click', () => {
+        switchMaterial(matGlass, 'btnGlass', 
+          "Refractive Liquid Glass (液体屈折ガラス)",
+          "光を吸い込み滑らかに屈折させる ykob スタイルの透明ガラス。つるんとした液体表面が優雅に波立ちます。"
+        );
+      });
+      document.getElementById('btnChrome').addEventListener('click', () => {
+        switchMaterial(matChrome, 'btnChrome',
+          "Liquid Molten Chrome (水銀・クローム鏡面)",
+          "つるんとした滑らかな鏡面の表面張力を保ち、緩やかに大波がうねる水銀彫刻表現。"
+        );
+      });
+      document.getElementById('btnObsidian').addEventListener('click', () => {
+        switchMaterial(matObsidian, 'btnObsidian',
+          "Obsidian Glass (漆黒・黒曜石)",
+          "深みのある黒曜石とスモーキーガラスの光沢が溶け合う、幽玄なモノトーン彫刻。"
+        );
+      });
+      document.getElementById('btnAurora').addEventListener('click', () => {
+        switchMaterial(matAurora, 'btnAurora',
+          "Iridescent Opal Pearl (虹色オパール)",
+          "光の反射角によってスペクトルが変化する、神秘的なオパール・オーロラガラス。"
+        );
+      });
+
+      // Auto-Rotate Toggle
+      const btnAutoRotate = document.getElementById('btnAutoRotate');
+      btnAutoRotate.addEventListener('click', () => {
+        autoRotate = !autoRotate;
+        btnAutoRotate.textContent = autoRotate ? "自動回転: ON" : "自動回転: OFF";
+        if (autoRotate) {
+          btnAutoRotate.classList.add('active');
+        } else {
+          btnAutoRotate.classList.remove('active');
+        }
+      });
+
+      // Tuning Sliders
+      document.getElementById('paramDistort').addEventListener('input', (e) => {
+        distortAmp = parseFloat(e.target.value);
+      });
+      document.getElementById('paramSpeed').addEventListener('input', (e) => {
+        fluidSpeed = parseFloat(e.target.value);
+      });
+      document.getElementById('paramSpacing').addEventListener('input', (e) => {
+        ringSpacing = parseFloat(e.target.value);
+      });
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Auto Rotation
+      if (autoRotate) {
+        ensoGroup.rotation.y += 0.0025;
+      }
+
+      // Smooth Camera Guidance Transition
+      if (isCameraTransitioning) {
+        camera.position.lerp(targetCameraPos, 0.045);
+        controls.target.lerp(targetLookAt, 0.045);
+        if (camera.position.distanceTo(targetCameraPos) < 1.0) {
+          isCameraTransitioning = false;
+        }
+      }
+
+      // Smooth Depth Spread Transition for Parallel Rings
+      depthSpread += (targetDepthSpread - depthSpread) * 0.045;
+
+      timeAcc += 0.016 * fluidSpeed;
+
+      // Animate each ring's position & Pure Liquid Undulation
+      ensoRings.forEach((mesh) => {
+        const isCenter = (mesh.userData.indexOffset === 0);
+        // In frontal solo view, only display the central ring for absolute crystal clarity
+        if (depthSpread < 0.02) {
+          mesh.visible = isCenter;
+        } else {
+          mesh.visible = true;
+        }
+
+        const targetZ = mesh.userData.indexOffset * ringSpacing * depthSpread;
+        mesh.position.z += (targetZ - mesh.position.z) * 0.08;
+
+        const positions = mesh.geometry.attributes.position;
+        const originals = mesh.userData.originalPositions.array;
+        const normals = mesh.userData.originalNormals.array;
+        const phase = mesh.userData.phaseShift;
+
+        const count = positions.count;
+        const t = timeAcc * 1.2 + phase;
+
+        for (let i = 0; i < count; i++) {
+          const i3 = i * 3;
+          const ox = originals[i3];
+          const oy = originals[i3 + 1];
+          const oz = originals[i3 + 2];
+
+          const nx = normals[i3];
+          const ny = normals[i3 + 1];
+          const nz = normals[i3 + 2];
+
+          const theta = Math.atan2(oy, ox);
+
+          // Broad harmonic circular wave around the ring
+          const wave1 = Math.sin(theta * 2.0 + t) * 0.65;
+          const wave2 = Math.cos(theta * 3.0 - t * 0.75) * 0.35;
+          const harmonicWave = wave1 + wave2;
+
+          // Gentle low-frequency 3D fluid swell
+          const lowNoise = simplex.noise3D(ox * 0.002, oy * 0.002, t * 0.3) * 0.35;
+
+          const disp = (harmonicWave + lowNoise) * distortAmp;
+          const zTwist = Math.sin(theta * 2.0 + t * 0.9) * (distortAmp * 0.5);
+
+          positions.setXYZ(
+            i,
+            ox + nx * disp,
+            oy + ny * disp,
+            oz + nz * disp + zTwist
+          );
+        }
+
+        positions.needsUpdate = true;
+        mesh.geometry.computeVertexNormals();
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init();
+      animate();
+    });
+  </script>
+</body>
+</html>

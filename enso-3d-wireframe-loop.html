@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Native Classic | Heavy Silver Ensō Engine</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background-color: #020202;
+    color: #E4E3DF;
+    font-family: 'Cinzel', serif, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #canvas-container {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0; left: 0;
+    cursor: grab;
+  }
+
+  #canvas-container:active {
+    cursor: grabbing;
+  }
+
+  .ui-panel {
+    position: absolute;
+    bottom: 45px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .ui-title {
+    font-size: 14px;
+    letter-spacing: 0.4em;
+    color: #E4E3DF;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .ui-sub {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: #999990;
+    opacity: 0.85;
+    transition: opacity 0.5s ease;
+  }
+
+  .controls-bar {
+    position: absolute;
+    top: 35px;
+    right: 40px;
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-view {
+    background: rgba(15, 15, 15, 0.85);
+    border: 1px solid rgba(220, 220, 210, 0.35);
+    color: #E4E3DF;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    padding: 10px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+
+  .btn-view:hover {
+    background: #E4E3DF;
+    color: #020202;
+  }
+
+  .btn-view.active {
+    border-color: #E4E3DF;
+    background: rgba(228, 227, 223, 0.25);
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <div class="controls-bar">
+    <button class="btn-view active" id="btnStep1">【 1. 正面：洗練された重厚シルバー円相 】</button>
+    <button class="btn-view" id="btnStep2">【 2. 側面：厚肉シルバーコロニー (3D) 】</button>
+    <button class="btn-view" id="btnAutoPlay">【 ▶ プレゼン自動旋回流動再生 】</button>
+  </div>
+
+  <div class="ui-panel">
+    <div class="ui-title">Native Classic — Heavy Silver Ensō Engine</div>
+    <div class="ui-sub" id="uiSub">【洗練された輪数 ✕ 極厚肉厚彫刻 ✕ 深みのあるプラチナシルバー質感】</div>
+  </div>
+
+  <script>
+    let scene, camera, renderer, controls;
+    let ensoGroup, stardustSystem, stardustGeo;
+    let ringMeshes = [];
+    let silverMetalMaterial;
+
+    let currentStep = 1;
+    let depthSpread = 0.0;
+    let targetDepthSpread = 0.0;
+
+    let flowProgress = 0.0;
+    let flowSpeed = 0.0;
+    let targetFlowSpeed = 0.0;
+    let flowDelayTimer = 0;
+
+    let isAutoPlaying = false;
+    let isUserInteracting = false;
+    let isDragging = false;
+
+    let targetCameraPos = new THREE.Vector3(0, 0, 440);
+    let targetLookAt = new THREE.Vector3(0, 0, 0);
+
+    const simplex = new SimplexNoise();
+    const NUM_RINGS = 16; // 「もうひとつ消す」感覚：個数を厳選し極限まで洗練！
+    const RING_SPACING = 380.0; // ゆったりとした間隔
+    const TOTAL_SPAN = NUM_RINGS * RING_SPACING;
+
+    const MAX_STARDUST = 1800;
+    const stardustParticles = [];
+
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x020202, 0.0004);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 5000);
+      camera.position.copy(targetCameraPos);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x020202, 1.0);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.45;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxDistance = 2200;
+      controls.minDistance = 50;
+
+      controls.minPolarAngle = 0.0001;
+      controls.maxPolarAngle = Math.PI - 0.0001;
+      controls.enabled = true;
+
+      // UltraHDR シルバー環境マッピング
+      scene.environment = createSilverHDREnvTexture();
+
+      // 白飛びを完全に抑えた「重厚で深みのあるリアル・プラチナシルバーマテリアル」
+      silverMetalMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x99AABB,         // 落ち着いた真銀（シルバー）カラー
+        metalness: 0.98,        // 完全金属質感
+        roughness: 0.10,        // 重厚なシルバー独特のなめらかな鈍い光沢
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.04,
+        reflectivity: 0.95,
+        ior: 2.3,
+        envMapIntensity: 2.2,   // 白飛びさせずシルバーの深みを演出
+        flatShading: false
+      });
+
+      // シルバーの青みがかった美しさを引き立てるスタジオライティング
+      const ambientLight = new THREE.AmbientLight(0x778899, 0.6);
+      scene.add(ambientLight);
+
+      const mainLight = new THREE.DirectionalLight(0xE0F0FF, 3.5);
+      mainLight.position.set(300, 500, 300);
+      scene.add(mainLight);
+
+      const fillLight = new THREE.DirectionalLight(0x445566, 2.0);
+      fillLight.position.set(-300, -200, -200);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.PointLight(0xDDF0FF, 2.0, 900);
+      rimLight.position.set(0, 300, -300);
+      scene.add(rimLight);
+
+      controls.addEventListener('start', () => {
+        isUserInteracting = true;
+        isDragging = true;
+        if (currentStep === 1) {
+          triggerStep2Transition();
+        }
+      });
+
+      controls.addEventListener('end', () => {
+        isDragging = false;
+      });
+
+      controls.addEventListener('change', () => {
+        if (isDragging) {
+          emitStardustParticles(4);
+        }
+      });
+
+      ensoGroup = new THREE.Group();
+      scene.add(ensoGroup);
+
+      createThickSilverEnsoRings();
+      initStardustSystem();
+
+      // UI Events
+      document.getElementById('btnStep1').addEventListener('click', () => {
+        goToStep1();
+      });
+
+      document.getElementById('btnStep2').addEventListener('click', () => {
+        goToStep2();
+      });
+
+      document.getElementById('btnAutoPlay').addEventListener('click', () => {
+        isAutoPlaying = !isAutoPlaying;
+        document.getElementById('btnAutoPlay').textContent = isAutoPlaying ? '【 ❚❚ 一時停止 】' : '【 ▶ プレゼン自動旋回流動再生 】';
+        if (isAutoPlaying) {
+          goToStep2();
+        }
+      });
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function createSilverHDREnvTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024; canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      const grad = ctx.createLinearGradient(0, 0, 1024, 1024);
+      grad.addColorStop(0, '#CCDDEE');
+      grad.addColorStop(0.35, '#667788');
+      grad.addColorStop(0.7, '#222233');
+      grad.addColorStop(1, '#000000');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(750, 250, 200, 0, Math.PI * 2);
+      ctx.fill();
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      return texture;
+    }
+
+    function triggerStep2Transition() {
+      currentStep = 2;
+      targetDepthSpread = 1.0;
+      flowDelayTimer = 40;
+      setActiveBtn('btnStep2');
+      document.getElementById('uiSub').textContent = "【ステップ2】極厚肉厚の重厚シルバーコロニーが、端が見えることなく無限に流動する";
+    }
+
+    function goToStep1() {
+      currentStep = 1;
+      isAutoPlaying = false;
+      isUserInteracting = false;
+
+      targetDepthSpread = 0.0;
+      targetFlowSpeed = 0.0;
+      setCameraPosition(0, 0, 440, 0, 0, 0);
+
+      document.getElementById('uiSub').textContent = "【ステップ1】洗練された個数 ✕ 極厚肉厚彫刻 ✕ 深みのあるプラチナシルバーの円相";
+      setActiveBtn('btnStep1');
+    }
+
+    function goToStep2() {
+      isUserInteracting = false;
+      triggerStep2Transition();
+      setCameraPosition(350, 40, 200, 0, 0, 0);
+    }
+
+    // 輪数を絞り込んで整理し、1つひとつの肉厚（厚み）を32px〜40pxへと圧倒的増量！
+    function createThickSilverEnsoRings() {
+      const pointsCount = 140;
+
+      for (let r = 0; r < NUM_RINGS; r++) {
+        const points = [];
+        const baseRadius = 145 + simplex.noise2D(r * 0.15, 0) * 16.0;
+
+        for (let p = 0; p <= pointsCount; p++) {
+          const theta = (p / pointsCount) * Math.PI * 2;
+          const noise = simplex.noise2D(Math.cos(theta) * 1.3, r * 0.08) * 15.0;
+          const rad = baseRadius + noise;
+
+          const x = Math.cos(theta) * rad;
+          const y = Math.sin(theta) * rad;
+          const z = 0;
+
+          points.push(new THREE.Vector3(x, y, z));
+        }
+
+        const curve = new THREE.CatmullRomCurve3(points);
+        // パイプ肉厚を【32.0px〜40.0px】へとさらに拡大！！（どっしりとした重厚な厚み）
+        const tubeThickness = 32.0 + (r % 2) * 8.0;
+        const tubeGeo = new THREE.TubeGeometry(curve, 120, tubeThickness, 24, true);
+
+        const mesh = new THREE.Mesh(tubeGeo, silverMetalMaterial);
+        ensoGroup.add(mesh);
+
+        ringMeshes.push({
+          mesh: mesh,
+          baseZ: (r - NUM_RINGS / 2) * RING_SPACING
+        });
+      }
+    }
+
+    function initStardustSystem() {
+      stardustGeo = new THREE.BufferGeometry();
+      const posArray = new Float32Array(MAX_STARDUST * 3);
+      const colorArray = new Float32Array(MAX_STARDUST * 3);
+
+      for (let i = 0; i < MAX_STARDUST; i++) {
+        posArray[i * 3] = 0;
+        posArray[i * 3 + 1] = -9999;
+        posArray[i * 3 + 2] = 0;
+
+        colorArray[i * 3] = 1.0;
+        colorArray[i * 3 + 1] = 1.0;
+        colorArray[i * 3 + 2] = 1.0;
+
+        stardustParticles.push({
+          active: false,
+          life: 0,
+          maxLife: 1.0,
+          vx: 0, vy: 0, vz: 0
+        });
+      }
+
+      stardustGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+      stardustGeo.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+
+      const stardustMat = new THREE.PointsMaterial({
+        size: 4.2,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending
+      });
+
+      stardustSystem = new THREE.Points(stardustGeo, stardustMat);
+      scene.add(stardustSystem);
+    }
+
+    function emitStardustParticles(count) {
+      const positions = stardustGeo.attributes.position.array;
+      const colors = stardustGeo.attributes.color.array;
+
+      let emitted = 0;
+      for (let i = 0; i < MAX_STARDUST; i++) {
+        if (!stardustParticles[i].active) {
+          stardustParticles[i].active = true;
+          stardustParticles[i].life = 1.0;
+          stardustParticles[i].maxLife = Math.random() * 50 + 35;
+
+          const u = Math.random() * Math.PI * 2;
+          const rad = 145 + (Math.random() - 0.5) * 40;
+
+          positions[i * 3] = Math.cos(u) * rad;
+          positions[i * 3 + 1] = Math.sin(u) * rad;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 2500 * depthSpread;
+
+          stardustParticles[i].vx = (Math.random() - 0.5) * 2.2;
+          stardustParticles[i].vy = (Math.random() - 0.5) * 2.2;
+          stardustParticles[i].vz = (Math.random() - 0.5) * 2.2;
+
+          const isGold = Math.random() > 0.5;
+          colors[i * 3] = isGold ? 1.0 : 0.9;
+          colors[i * 3 + 1] = isGold ? 0.85 : 0.9;
+          colors[i * 3 + 2] = isGold ? 0.4 : 1.0;
+
+          emitted++;
+          if (emitted >= count) break;
+        }
+      }
+
+      stardustGeo.attributes.position.needsUpdate = true;
+      stardustGeo.attributes.color.needsUpdate = true;
+    }
+
+    function setCameraPosition(x, y, z, lx = 0, ly = 0, lz = 0) {
+      targetCameraPos.set(x, y, z);
+      targetLookAt.set(lx, ly, lz);
+    }
+
+    function setActiveBtn(id) {
+      document.querySelectorAll('.btn-view').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (currentStep === 2) {
+        if (flowDelayTimer > 0) {
+          flowDelayTimer--;
+          if (flowDelayTimer === 0) {
+            targetFlowSpeed = 2.8;
+          }
+        }
+      }
+
+      depthSpread += (targetDepthSpread - depthSpread) * 0.045;
+      flowSpeed += (targetFlowSpeed - flowSpeed) * 0.04;
+
+      if (flowSpeed > 0.01) {
+        flowProgress += flowSpeed;
+      }
+
+      const halfSpan = TOTAL_SPAN / 2;
+      ringMeshes.forEach((item) => {
+        let zPos = (item.baseZ - flowProgress * depthSpread);
+
+        while (zPos < -halfSpan) zPos += TOTAL_SPAN;
+        while (zPos > halfSpan) zPos -= TOTAL_SPAN;
+
+        item.mesh.position.z = zPos * depthSpread;
+      });
+
+      // 星屑移動
+      const sPos = stardustGeo.attributes.position.array;
+      for (let i = 0; i < MAX_STARDUST; i++) {
+        if (stardustParticles[i].active) {
+          stardustParticles[i].life -= 1.0 / stardustParticles[i].maxLife;
+          if (stardustParticles[i].life <= 0) {
+            stardustParticles[i].active = false;
+            sPos[i * 3 + 1] = -9999;
+          } else {
+            sPos[i * 3] += stardustParticles[i].vx;
+            sPos[i * 3 + 1] += stardustParticles[i].vy;
+            sPos[i * 3 + 2] += stardustParticles[i].vz;
+          }
+        }
+      }
+      stardustGeo.attributes.position.needsUpdate = true;
+
+      if (currentStep === 2 && Math.random() > 0.4) {
+        emitStardustParticles(1);
+      }
+
+      // Smooth Camera & Rotation
+      if (!isUserInteracting) {
+        camera.position.lerp(targetCameraPos, 0.05);
+        controls.target.lerp(targetLookAt, 0.05);
+      }
+
+      if (currentStep === 2 || isAutoPlaying) {
+        ensoGroup.rotation.y += 0.0025;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init();
+      animate();
+    });
+  </script>
+</body>
+</html>

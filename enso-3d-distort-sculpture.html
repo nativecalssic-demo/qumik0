@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Native Classic | 3D Distorted Ensō Sculpture (黒陶・雲母の歪み彫刻)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background-color: #0A0A09;
+    color: #E4E3DF;
+    font-family: 'Cinzel', serif, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #canvas-container {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0; left: 0;
+    cursor: grab;
+  }
+
+  #canvas-container:active {
+    cursor: grabbing;
+  }
+
+  .ui-panel {
+    position: absolute;
+    bottom: 45px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .ui-title {
+    font-size: 15px;
+    letter-spacing: 0.35em;
+    color: #E4E3DF;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .ui-sub {
+    font-size: 11.5px;
+    letter-spacing: 0.2em;
+    color: #A8A69E;
+    opacity: 0.85;
+  }
+
+  .controls-bar {
+    position: absolute;
+    top: 35px;
+    right: 40px;
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-view {
+    background: rgba(30, 30, 28, 0.85);
+    border: 1px solid rgba(200, 198, 190, 0.3);
+    color: #E4E3DF;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    padding: 10px 20px;
+    border-radius: 30px;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+
+  .btn-view:hover {
+    background: #E4E3DF;
+    color: #0A0A09;
+  }
+
+  .btn-view.active {
+    border-color: #E4E3DF;
+    background: rgba(228, 227, 223, 0.2);
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <div class="controls-bar">
+    <button class="btn-view active" id="btnMatBlack">【 黒陶 (Ceramic) 】</button>
+    <button class="btn-view" id="btnMatMica">【 雲母 (Mica Silver) 】</button>
+    <button class="btn-view" id="btnMatLacquer">【 漆 (Charcoal Lacquer) 】</button>
+    <button class="btn-view" id="btnAutoRotate">自動回転: ON</button>
+  </div>
+
+  <div class="ui-panel">
+    <div class="ui-title" id="uiStatusTitle">Native Classic — 3D Distorted Ensō Sculpture</div>
+    <div class="ui-sub">【3Dメッシュ頂点ノイズ歪み】 黒陶・雲母の質感が息づく歪む立体円相</div>
+  </div>
+
+  <script>
+    let scene, camera, renderer, controls, sculptureMesh, originalPositions;
+    let autoRotate = true;
+    const simplex = new SimplexNoise();
+
+    let materialBlack, materialMica, materialLacquer;
+
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
+      camera.position.set(0, 180, 520);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x0A0A09, 1.0);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      container.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxDistance = 1200;
+      controls.minDistance = 100;
+
+      // Studio Lighting
+      const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.45);
+      scene.add(ambientLight);
+
+      const mainLight = new THREE.DirectionalLight(0xFFFFFF, 1.2);
+      mainLight.position.set(200, 300, 250);
+      scene.add(mainLight);
+
+      const rimLight = new THREE.DirectionalLight(0xE4E3DF, 0.9);
+      rimLight.position.set(-250, -150, -200);
+      scene.add(rimLight);
+
+      const fillLight = new THREE.PointLight(0x8A8880, 0.6);
+      fillLight.position.set(0, -200, 150);
+      scene.add(fillLight);
+
+      // Create Torus Ensō Sculpture Geometry
+      const geometry = new THREE.TorusGeometry(160, 55, 120, 240);
+      originalPositions = geometry.attributes.position.clone();
+
+      materialBlack = new THREE.MeshStandardMaterial({
+        color: 0x1A1A18,
+        roughness: 0.42,
+        metalness: 0.12,
+        flatShading: false
+      });
+
+      materialMica = new THREE.MeshStandardMaterial({
+        color: 0xD8D6CE,
+        roughness: 0.25,
+        metalness: 0.75,
+        flatShading: false
+      });
+
+      materialLacquer = new THREE.MeshStandardMaterial({
+        color: 0x0D0D0C,
+        roughness: 0.15,
+        metalness: 0.35
+      });
+
+      sculptureMesh = new THREE.Mesh(geometry, materialBlack);
+      scene.add(sculptureMesh);
+
+      document.getElementById('btnMatBlack').addEventListener('click', () => {
+        sculptureMesh.material = materialBlack;
+        setActiveBtn('btnMatBlack');
+      });
+
+      document.getElementById('btnMatMica').addEventListener('click', () => {
+        sculptureMesh.material = materialMica;
+        setActiveBtn('btnMatMica');
+      });
+
+      document.getElementById('btnMatLacquer').addEventListener('click', () => {
+        sculptureMesh.material = materialLacquer;
+        setActiveBtn('btnMatLacquer');
+      });
+
+      const btnAuto = document.getElementById('btnAutoRotate');
+      btnAuto.addEventListener('click', () => {
+        autoRotate = !autoRotate;
+        btnAuto.textContent = autoRotate ? '自動回転: ON' : '自動回転: OFF';
+      });
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function setActiveBtn(id) {
+      document.querySelectorAll('.btn-view').forEach(b => b.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (autoRotate) {
+        sculptureMesh.rotation.y += 0.003;
+        sculptureMesh.rotation.x += 0.0015;
+      }
+
+      // Dynamic Simplex Noise 3D Vertex Distortion
+      const time = Date.now() * 0.0008;
+      const positions = sculptureMesh.geometry.attributes.position;
+      const originals = originalPositions.array;
+      const normals = sculptureMesh.geometry.attributes.normal.array;
+
+      for (let i = 0; i < positions.count; i++) {
+        const ox = originals[i * 3];
+        const oy = originals[i * 3 + 1];
+        const oz = originals[i * 3 + 2];
+
+        const nx = normals[i * 3];
+        const ny = normals[i * 3 + 1];
+        const nz = normals[i * 3 + 2];
+
+        const noiseScale = 0.008;
+        const noiseVal = simplex.noise3D(ox * noiseScale, oy * noiseScale, oz * noiseScale + time);
+
+        const distortionAmp = 28.0;
+        const displacement = noiseVal * distortionAmp;
+
+        positions.setXYZ(
+          i,
+          ox + nx * displacement,
+          oy + ny * displacement,
+          oz + nz * displacement
+        );
+      }
+
+      positions.needsUpdate = true;
+      sculptureMesh.geometry.computeVertexNormals();
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init();
+      animate();
+    });
+  </script>
+</body>
+</html>

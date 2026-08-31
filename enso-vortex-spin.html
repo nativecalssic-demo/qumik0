@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Native Classic | Ensō Vortex Left-Spin (水銀トンネル・左回転)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Noto+Serif+JP:wght@300;400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background-color: #020203;
+    color: #E8E6E1;
+    font-family: 'Cinzel', 'Noto Serif JP', serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #canvas-container {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    top: 0; left: 0;
+    cursor: grab;
+  }
+
+  #canvas-container:active {
+    cursor: grabbing;
+  }
+
+  .vignette {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 25%, rgba(2,2,3,0.94) 100%);
+    z-index: 2;
+  }
+
+  /* Header Branding */
+  .brand-header {
+    position: absolute;
+    top: 28px;
+    left: 36px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .brand-title {
+    font-size: 15px;
+    letter-spacing: 0.38em;
+    color: #F0EEE9;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .brand-subtitle {
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    color: #8E8C84;
+    margin-top: 5px;
+    font-family: 'Noto Serif JP', serif;
+  }
+
+  /* Top Navigation Bar */
+  .nav-bar-container {
+    position: absolute;
+    top: 28px;
+    right: 36px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .controls-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .btn-nav {
+    background: rgba(18, 18, 20, 0.82);
+    border: 1px solid rgba(220, 218, 210, 0.22);
+    color: #D4D2C9;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    font-family: 'Cinzel', 'Noto Serif JP', serif;
+  }
+
+  .btn-nav:hover {
+    background: rgba(232, 230, 225, 0.95);
+    color: #030303;
+    border-color: #E8E6E1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);
+  }
+
+  .btn-nav.active {
+    background: rgba(232, 230, 225, 0.22);
+    border-color: #F0EEE9;
+    color: #FFFFFF;
+    box-shadow: 0 0 14px rgba(240, 238, 233, 0.25);
+  }
+
+  /* Tuning Panel (Bottom-Left) */
+  .tuning-panel {
+    position: absolute;
+    bottom: 34px;
+    left: 36px;
+    z-index: 10;
+    background: rgba(14, 14, 16, 0.82);
+    border: 1px solid rgba(220, 218, 210, 0.15);
+    border-radius: 12px;
+    padding: 16px 20px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    width: 310px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+
+  .tuning-title {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: #A6A49C;
+    text-transform: uppercase;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 6px;
+    font-family: 'Noto Serif JP', serif;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #CCCAC2;
+    letter-spacing: 0.1em;
+  }
+
+  .slider-row label {
+    font-family: 'Noto Serif JP', serif;
+  }
+
+  .slider-row input[type=range] {
+    -webkit-appearance: none;
+    width: 120px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #E8E6E1;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .slider-row input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  /* Bottom Center Status Caption */
+  .ui-panel {
+    position: absolute;
+    bottom: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none;
+    max-width: 600px;
+  }
+
+  .ui-mode-name {
+    font-size: 13.5px;
+    letter-spacing: 0.32em;
+    color: #F0EEE9;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .ui-mode-desc {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: #94928A;
+    line-height: 1.6;
+    font-family: 'Noto Serif JP', serif;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+  <div class="vignette"></div>
+
+  <div class="brand-header">
+    <div class="brand-title">Native Classic</div>
+    <div class="brand-subtitle">Ensō Vortex — Left Spin (水銀トンネル・左回転)</div>
+  </div>
+
+  <div class="nav-bar-container">
+    <!-- Camera View Presets -->
+    <div class="controls-row">
+      <button class="btn-nav btn-view-cam active" id="btnViewTunnel">【 1. トンネル左回転 (Vortex) 】</button>
+      <button class="btn-nav btn-view-cam" id="btnViewSide">【 2. 側面無限回廊 (Colony) 】</button>
+      <button class="btn-nav btn-view-cam" id="btnViewFront">【 3. 正面単一円相 (Solo) 】</button>
+      <button class="btn-nav active" id="btnSpinToggle">左回転: ON (CCW)</button>
+    </div>
+    <!-- Material Presets -->
+    <div class="controls-row">
+      <button class="btn-nav active" id="btnMatMercuryMirror">水銀・ダーククローム鏡面</button>
+      <button class="btn-nav" id="btnMatLiquidSilver">純銀リキッドシルバー</button>
+      <button class="btn-nav" id="btnMatPlatinum">重厚プラチナ</button>
+      <button class="btn-nav" id="btnMatGlass">液体屈折ガラス</button>
+    </div>
+  </div>
+
+  <div class="tuning-panel">
+    <div class="tuning-title">
+      <span>回転 & 揺らぎ・重なり 制御</span>
+      <span style="font-size:9px;color:#777;">VORTEX LAB</span>
+    </div>
+    <div class="slider-row">
+      <label>左回転スピード (Spin)</label>
+      <input type="range" id="paramSpinSpeed" min="0.0" max="2.0" value="0.5" step="0.05">
+    </div>
+    <div class="slider-row">
+      <label>波立ち・うねり (Wave)</label>
+      <input type="range" id="paramDistort" min="0.0" max="25.0" value="10.0" step="0.5">
+    </div>
+    <div class="slider-row">
+      <label>波の流動速度 (Fluid)</label>
+      <input type="range" id="paramFluidSpeed" min="0.0" max="2.0" value="0.45" step="0.05">
+    </div>
+    <div class="slider-row">
+      <label>重なり間隔 (Spacing)</label>
+      <input type="range" id="paramSpacing" min="100" max="500" value="180" step="10">
+    </div>
+    <div class="slider-row">
+      <label>反射コントラスト (Contrast)</label>
+      <input type="range" id="paramContrast" min="1.0" max="4.0" value="3.0" step="0.1">
+    </div>
+  </div>
+
+  <div class="ui-panel">
+    <div class="ui-mode-name" id="uiTitle">Counter-Clockwise Vortex (水銀トンネル・左回転)</div>
+    <div class="ui-mode-desc" id="uiDesc">
+      美しい重なりと流動する揺らぎを完全に維持したまま、奥行き全体が優雅に左回転（反時計回り）へとスピンし続けます。
+    </div>
+  </div>
+
+  <script>
+    let scene, camera, renderer, controls, pmremGenerator;
+    let ensoGroup;
+    let ensoRings = [];
+    const NUM_PARALLEL_RINGS = 16;
+    let ringSpacing = 180.0; // Dense overlapping tunnel spacing from the screenshot
+
+    let matLiquidSilver, matMercuryMirror, matPlatinum, matGlass;
+    let currentMaterial;
+    const simplex = new SimplexNoise();
+
+    // Parameters
+    let spinEnabled = true;
+    let spinSpeed = 0.5; // Left rotation speed (CCW)
+    let distortAmp = 10.0;
+    let fluidSpeed = 0.45;
+    let timeAcc = 0;
+    let spinAcc = 0;
+    let studioContrast = 3.0;
+
+    // Camera Guidance & Depth Transition State
+    let currentViewMode = 'tunnel';
+    let isCameraTransitioning = true;
+    // Initial tunnel camera looking down the vortex tunnel with dramatic perspective
+    let targetCameraPos = new THREE.Vector3(0, 0, 720);
+    let targetLookAt = new THREE.Vector3(0, 0, -200);
+
+    let depthSpread = 1.0;
+    let targetDepthSpread = 1.0;
+
+    // High-Contrast Studio HDR Environment Map
+    function createHighContrastStudioEnv() {
+      const size = 2048;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size / 2;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#020204';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Key Overhead Softbox
+      const keyBoxX = canvas.width * 0.70;
+      const keyBoxY = canvas.height * 0.28;
+      const keyGrad = ctx.createRadialGradient(keyBoxX, keyBoxY, 10, keyBoxX, keyBoxY, 320);
+      keyGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+      keyGrad.addColorStop(0.35, 'rgba(245, 250, 255, 0.95)');
+      keyGrad.addColorStop(0.65, 'rgba(160, 200, 240, 0.35)');
+      keyGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = keyGrad;
+      ctx.fillRect(keyBoxX - 400, keyBoxY - 400, 800, 800);
+
+      // Sharp Vertical Strip Light for Rim Gloss
+      const stripX = canvas.width * 0.22;
+      const stripGrad = ctx.createLinearGradient(stripX - 100, 0, stripX + 100, 0);
+      stripGrad.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
+      stripGrad.addColorStop(0.44, 'rgba(255, 255, 255, 0.98)');
+      stripGrad.addColorStop(0.56, 'rgba(255, 255, 255, 0.98)');
+      stripGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = stripGrad;
+      ctx.fillRect(stripX - 150, 0, 300, canvas.height);
+
+      // Side Glint
+      const sideX = canvas.width * 0.45;
+      const sideY = canvas.height * 0.55;
+      const sideGrad = ctx.createRadialGradient(sideX, sideY, 10, sideX, sideY, 280);
+      sideGrad.addColorStop(0.0, 'rgba(220, 235, 255, 0.75)');
+      sideGrad.addColorStop(0.5, 'rgba(120, 150, 180, 0.2)');
+      sideGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = sideGrad;
+      ctx.fillRect(sideX - 300, sideY - 300, 600, 600);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      return texture;
+    }
+
+    function init() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x020203, 0.0003);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 6000);
+      camera.position.set(0, 0, 720);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x020203, 1.0);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.3;
+      container.appendChild(renderer.domElement);
+
+      pmremGenerator = new THREE.PMREMGenerator(renderer);
+      pmremGenerator.compileEquirectangularShader();
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxDistance = 3500;
+      controls.minDistance = 60;
+      controls.target.set(0, 0, -200);
+
+      controls.addEventListener('start', () => {
+        isCameraTransitioning = false;
+      });
+
+      // Studio Lighting
+      const ambLight = new THREE.AmbientLight(0x222228, 0.25);
+      scene.add(ambLight);
+
+      const keyLight = new THREE.DirectionalLight(0xFFFFFF, 2.2);
+      keyLight.position.set(350, 550, 450);
+      scene.add(keyLight);
+
+      const rimLight = new THREE.DirectionalLight(0xCCE0FF, 1.8);
+      rimLight.position.set(-500, -50, -350);
+      scene.add(rimLight);
+
+      const bottomKick = new THREE.PointLight(0x7788AA, 0.6, 1200);
+      bottomKick.position.set(0, -380, 220);
+      scene.add(bottomKick);
+
+      const envTexture = createHighContrastStudioEnv();
+      scene.environment = envTexture;
+
+      // Materials
+      matMercuryMirror = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0xA8B0C0),
+        metalness: 1.0,
+        roughness: 0.005,
+        envMap: envTexture,
+        envMapIntensity: studioContrast * 1.25
+      });
+
+      matLiquidSilver = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0xD8DCE8),
+        metalness: 1.0,
+        roughness: 0.015,
+        envMap: envTexture,
+        envMapIntensity: studioContrast
+      });
+
+      matPlatinum = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(0xEAE6DF),
+        metalness: 0.95,
+        roughness: 0.04,
+        reflectivity: 0.9,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.01,
+        envMap: envTexture,
+        envMapIntensity: studioContrast
+      });
+
+      matGlass = new THREE.MeshPhysicalMaterial({
+        color: 0xFFFFFF,
+        transmission: 0.95,
+        opacity: 1.0,
+        transparent: true,
+        roughness: 0.0,
+        metalness: 0.0,
+        ior: 1.52,
+        thickness: 42.0,
+        attenuationColor: new THREE.Color(0xF0F4FF),
+        attenuationDistance: 160.0,
+        reflectivity: 0.65,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        envMap: envTexture,
+        envMapIntensity: studioContrast * 0.8
+      });
+
+      currentMaterial = matMercuryMirror; // Default to the Dark Chrome from user's screenshot
+
+      // Parallel Rings System
+      ensoGroup = new THREE.Group();
+      scene.add(ensoGroup);
+
+      for (let k = 0; k < NUM_PARALLEL_RINGS; k++) {
+        const geometry = new THREE.TorusGeometry(150, 44, 56, 160);
+        const origPos = geometry.attributes.position.clone();
+        const origNorm = geometry.attributes.normal.clone();
+
+        const mesh = new THREE.Mesh(geometry, currentMaterial);
+
+        // Position from near to deep along -Z
+        const indexOffset = k - 3; // Let front rings be near camera, stretching deep into screen
+        mesh.userData = {
+          originalPositions: origPos,
+          originalNormals: origNorm,
+          indexOffset: indexOffset,
+          ringIndex: k,
+          phaseShift: k * 0.35,
+          spinPhaseOffset: k * 0.08 // Spiral vortex offset
+        };
+
+        ensoGroup.add(mesh);
+        ensoRings.push(mesh);
+      }
+
+      setupEvents();
+    }
+
+    function switchMaterial(newMat, btnId, title, desc) {
+      currentMaterial = newMat;
+      ensoRings.forEach(ring => {
+        ring.material = currentMaterial;
+      });
+      document.querySelectorAll('.controls-row:nth-child(2) .btn-nav').forEach(b => b.classList.remove('active'));
+      document.getElementById(btnId).classList.add('active');
+      document.getElementById('uiTitle').textContent = title;
+      document.getElementById('uiDesc').textContent = desc;
+    }
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      isCameraTransitioning = true;
+      document.querySelectorAll('.btn-view-cam').forEach(b => b.classList.remove('active'));
+
+      if (mode === 'tunnel') {
+        document.getElementById('btnViewTunnel').classList.add('active');
+        targetCameraPos.set(0, 0, 720);
+        targetLookAt.set(0, 0, -200);
+        targetDepthSpread = 1.0;
+        document.getElementById('uiTitle').textContent = "Counter-Clockwise Vortex (水銀トンネル・左回転)";
+        document.getElementById('uiDesc').textContent = "奥行きへと吸い込まれるトンネル構図。流動する揺らぎを保ちながら全体が優雅に左回転（反時計回り）します。";
+      } else if (mode === 'side') {
+        document.getElementById('btnViewSide').classList.add('active');
+        targetCameraPos.set(850, 120, -100);
+        targetLookAt.set(0, 0, -200);
+        targetDepthSpread = 1.0;
+        document.getElementById('uiTitle').textContent = "Side Parallel Infinite Corridor (側面・並列無限回廊)";
+        document.getElementById('uiDesc').textContent = "側面から見渡す並列回廊。各リングが回転しながら波打つ壮大なインスタレーション。";
+      } else if (mode === 'front') {
+        document.getElementById('btnViewFront').classList.add('active');
+        targetCameraPos.set(0, 0, 580);
+        targetLookAt.set(0, 0, 0);
+        targetDepthSpread = 0.0;
+        document.getElementById('uiTitle').textContent = "Frontal Solo View (正面・単一円相)";
+        document.getElementById('uiDesc').textContent = "正面では中央に美しく集約された単一の液体円相。静謐な左回転スピンを鑑賞。";
+      }
+    }
+
+    function setupEvents() {
+      // Camera guidance buttons
+      document.getElementById('btnViewTunnel').addEventListener('click', () => setViewMode('tunnel'));
+      document.getElementById('btnViewSide').addEventListener('click', () => setViewMode('side'));
+      document.getElementById('btnViewFront').addEventListener('click', () => setViewMode('front'));
+
+      // Spin Toggle
+      const btnSpinToggle = document.getElementById('btnSpinToggle');
+      btnSpinToggle.addEventListener('click', () => {
+        spinEnabled = !spinEnabled;
+        btnSpinToggle.textContent = spinEnabled ? "左回転: ON (CCW)" : "回転: OFF";
+        if (spinEnabled) {
+          btnSpinToggle.classList.add('active');
+        } else {
+          btnSpinToggle.classList.remove('active');
+        }
+      });
+
+      // Material buttons
+      document.getElementById('btnMatMercuryMirror').addEventListener('click', () => {
+        switchMaterial(matMercuryMirror, 'btnMatMercuryMirror',
+          "Liquid Mercury Mirror (水銀・ダーククローム鏡面)",
+          "シャープな光と深い闇が織りなす、スクショ通りの最高峰水銀クローム鏡面。"
+        );
+      });
+      document.getElementById('btnMatLiquidSilver').addEventListener('click', () => {
+        switchMaterial(matLiquidSilver, 'btnMatLiquidSilver',
+          "Pure Liquid Silver (純銀リキッドシルバー)",
+          "高コントラストなスタジオ照明と重厚な金属シルバーの輝き。"
+        );
+      });
+      document.getElementById('btnMatPlatinum').addEventListener('click', () => {
+        switchMaterial(matPlatinum, 'btnMatPlatinum',
+          "Heavy Platinum (重厚プラチナ)",
+          "クリアコートの二層光沢と温かみのある白金トーン。"
+        );
+      });
+      document.getElementById('btnMatGlass').addEventListener('click', () => {
+        switchMaterial(matGlass, 'btnMatGlass',
+          "Refractive Liquid Glass (液体屈折ガラス)",
+          "光を滑らかに屈折させる ykob スタイルの透明ガラス表現。"
+        );
+      });
+
+      // Tuning Sliders
+      document.getElementById('paramSpinSpeed').addEventListener('input', (e) => {
+        spinSpeed = parseFloat(e.target.value);
+      });
+      document.getElementById('paramDistort').addEventListener('input', (e) => {
+        distortAmp = parseFloat(e.target.value);
+      });
+      document.getElementById('paramFluidSpeed').addEventListener('input', (e) => {
+        fluidSpeed = parseFloat(e.target.value);
+      });
+      document.getElementById('paramSpacing').addEventListener('input', (e) => {
+        ringSpacing = parseFloat(e.target.value);
+      });
+      document.getElementById('paramContrast').addEventListener('input', (e) => {
+        studioContrast = parseFloat(e.target.value);
+        matMercuryMirror.envMapIntensity = studioContrast * 1.25;
+        matLiquidSilver.envMapIntensity = studioContrast;
+      });
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Smooth Camera Guidance Transition
+      if (isCameraTransitioning) {
+        camera.position.lerp(targetCameraPos, 0.045);
+        controls.target.lerp(targetLookAt, 0.045);
+        if (camera.position.distanceTo(targetCameraPos) < 1.0) {
+          isCameraTransitioning = false;
+        }
+      }
+
+      depthSpread += (targetDepthSpread - depthSpread) * 0.045;
+      timeAcc += 0.016 * fluidSpeed;
+
+      // Accumulate Left Rotation (Counter-Clockwise in Z: +Z in Three.js standard coordinates is counter-clockwise when looking from +Z)
+      if (spinEnabled) {
+        spinAcc += 0.01 * spinSpeed;
+      }
+
+      ensoRings.forEach((mesh) => {
+        const isCenter = (mesh.userData.ringIndex === 0);
+        if (depthSpread < 0.02) {
+          mesh.visible = isCenter;
+        } else {
+          mesh.visible = true;
+        }
+
+        // Depth positioning: deeper into -Z
+        const targetZ = -mesh.userData.indexOffset * ringSpacing * depthSpread;
+        mesh.position.z += (targetZ - mesh.position.z) * 0.08;
+
+        // Apply Left Rotation (Counter-Clockwise Z-rotation) with subtle spiral twist along depth
+        const ringZRotation = spinAcc + mesh.userData.spinPhaseOffset;
+        mesh.rotation.z = ringZRotation;
+
+        // Harmonic Undulation & Fluid Swell
+        const positions = mesh.geometry.attributes.position;
+        const originals = mesh.userData.originalPositions.array;
+        const normals = mesh.userData.originalNormals.array;
+        const phase = mesh.userData.phaseShift;
+
+        const count = positions.count;
+        const t = timeAcc * 1.2 + phase;
+
+        for (let i = 0; i < count; i++) {
+          const i3 = i * 3;
+          const ox = originals[i3];
+          const oy = originals[i3 + 1];
+          const oz = originals[i3 + 2];
+
+          const nx = normals[i3];
+          const ny = normals[i3 + 1];
+          const nz = normals[i3 + 2];
+
+          const theta = Math.atan2(oy, ox);
+
+          // Harmonic circular wave traveling along the ring
+          const wave1 = Math.sin(theta * 2.0 + t) * 0.65;
+          const wave2 = Math.cos(theta * 3.0 - t * 0.75) * 0.35;
+          const harmonicWave = wave1 + wave2;
+
+          // Low-frequency 3D fluid swell
+          const lowNoise = simplex.noise3D(ox * 0.002, oy * 0.002, t * 0.3) * 0.35;
+
+          const disp = (harmonicWave + lowNoise) * distortAmp;
+          const zTwist = Math.sin(theta * 2.0 + t * 0.9) * (distortAmp * 0.5);
+
+          positions.setXYZ(
+            i,
+            ox + nx * disp,
+            oy + ny * disp,
+            oz + nz * disp + zTwist
+          );
+        }
+
+        positions.needsUpdate = true;
+        mesh.geometry.computeVertexNormals();
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      init();
+      animate();
+    });
+  </script>
+</body>
+</html>
