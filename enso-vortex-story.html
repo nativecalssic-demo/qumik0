@@ -31,7 +31,7 @@
   }
 
   /* スクロール量を確保するためのダミー領域 */
-  #scroll-space { height: 1000vh; }
+  #scroll-space { height: 650vh; }
 
   #stage {
     position: fixed;
@@ -187,32 +187,38 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 28px;
+    gap: 22px;
     opacity: 0;
     pointer-events: none;
     transition: opacity 1.8s cubic-bezier(0.16, 1, 0.3, 1);
-    background: radial-gradient(ellipse at center, rgba(2,2,4,0) 0%, rgba(2,2,4,0.7) 100%);
+    background: radial-gradient(ellipse at center, rgba(2,2,4,0) 0%, rgba(2,2,4,0.75) 100%);
     padding: 0 24px;
     text-align: center;
   }
 
   .ending.visible { opacity: 1; pointer-events: auto; }
 
-  .ending-sub {
+  .ending-brand {
     font-family: 'Cinzel', 'Cardo', serif;
-    font-size: 13px;
-    letter-spacing: 0.55em;
-    color: #A8A69E;
+    font-size: clamp(28px, 5.2vw, 58px);
+    letter-spacing: 0.45em;
+    color: var(--accent);
     text-transform: uppercase;
+    font-weight: 600;
+    text-shadow: 0 0 40px rgba(240, 238, 233, 0.4);
+    margin-right: -0.45em; /* letter-spacingの右側余白を相殺して完全中央揃え */
   }
 
-  .ending h1 {
-    font-size: clamp(22px, 3.6vw, 44px);
-    font-weight: 500;
-    letter-spacing: 0.28em;
-    color: var(--accent);
+  .ending-tagline {
+    font-family: 'Shippori Mincho', serif;
+    font-size: clamp(14px, 2.0vw, 22px);
+    font-weight: 400;
+    letter-spacing: 0.35em;
+    color: #C8C6BE;
     line-height: 1.6;
-    text-shadow: 0 0 30px rgba(240, 238, 233, 0.25);
+    opacity: 0.88;
+    text-shadow: 0 0 24px rgba(240, 238, 233, 0.25);
+    margin-right: -0.35em;
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -241,8 +247,8 @@
 <div class="progress"><span id="bar"></span></div>
 
 <div class="ending" id="ending">
-  <div class="ending-sub">NATIVE CLASSIC</div>
-  <h1>真摯な探求の軌跡を、時代を超える形へ。</h1>
+  <h1 class="ending-brand">NATIVE CLASSIC</h1>
+  <p class="ending-tagline">目に見えない時の深層。</p>
 </div>
 
 <script>
@@ -437,14 +443,9 @@ for (let k = 0; k < NUM_PARALLEL_RINGS; k++) {
 
 /* ---------- パースに沿って流れてくる確定文章（8節） ---------- */
 const SENTENCES = [
-  '飾られた記号が、溢れる時代。',
-  '効率の先に、何が残るのか。',
-  '風土に宿る、土の記憶。',
-  '二度と描けない、手仕事の痕跡。',
-  '目には見えない、時間の層を視る。',
-  '世代を超えて、未来へ手渡す。',
-  'あなたにとって、本物とは何か。',
-  'この円は、人々の原点を映す鏡。',
+  '土地に宿る、記憶。',
+  '刻まれた、手仕事の痕跡。',
+  '世代を超えて積み重なる。',
 ];
 
 function makeTextPlane(text) {
@@ -480,20 +481,19 @@ function makeTextPlane(text) {
 }
 
 const textMeshes = [];
-const FIRST_TEXT_Z = 350;
-const TEXT_GAP = 420;
+const TEXT_POSITIONS_Z = [0, -1350, -2700];
 
 async function buildSentences() {
   try { await document.fonts.load("500 80px 'Shippori Mincho'"); } catch (e) {}
   SENTENCES.forEach((s, i) => {
     const mesh = makeTextPlane(s);
-    const z = FIRST_TEXT_Z - i * TEXT_GAP;
+    const z = TEXT_POSITIONS_Z[i] !== undefined ? TEXT_POSITIONS_Z[i] : -i * 1200;
     // トンネルの内側・中央付近を心地よく漂う位置
     const side = (i % 2 === 0 ? -1 : 1);
-    const offsetX = side * 16;
-    const offsetY = (i % 2 === 0 ? 6 : -6);
+    const offsetX = side * 14;
+    const offsetY = (i % 2 === 0 ? 5 : -5);
     mesh.position.set(offsetX, offsetY, z);
-    mesh.rotation.y = side * -0.05;
+    mesh.rotation.y = side * -0.04;
     mesh.userData = {
       baseX: offsetX,
       baseY: offsetY,
@@ -553,13 +553,35 @@ const hint = document.getElementById('hint');
 const bar = document.getElementById('bar');
 const ending = document.getElementById('ending');
 
+// 各文章の目の前でスクロールがグッと粘って留まる「強力なマグネット・ポーズ（プラトー）」
+function easeReadingZones(p) {
+  const plateaus = [
+    { center: 0.22, halfWidth: 0.12, holdStrength: 0.90 },
+    { center: 0.52, halfWidth: 0.12, holdStrength: 0.90 },
+    { center: 0.78, halfWidth: 0.12, holdStrength: 0.90 },
+  ];
+
+  let res = p;
+  for (const pl of plateaus) {
+    const diff = p - pl.center;
+    if (Math.abs(diff) < pl.halfWidth) {
+      const norm = diff / pl.halfWidth; // -1 .. 1
+      const damped = Math.sign(norm) * Math.pow(Math.abs(norm), 2.5) * pl.halfWidth;
+      res = pl.center + THREE.MathUtils.lerp(diff, damped, pl.holdStrength);
+    }
+  }
+  return THREE.MathUtils.clamp(res, 0, 1);
+}
+
 function renderFrame(time) {
   // スムーズ慣性追従
-  progress += (targetProgress - progress) * 0.055;
+  progress += (targetProgress - progress) * 0.045;
+
+  const easedProgress = easeReadingZones(progress);
 
   // カメラをスクロール量に応じてトンネル深層へ前進
   const startCamZ = 720;
-  const targetCamZ = startCamZ + progress * (TOTAL_TRAVEL_Z - startCamZ + 400);
+  const targetCamZ = startCamZ + easedProgress * (TOTAL_TRAVEL_Z - startCamZ + 400);
   camera.position.z = targetCamZ;
 
   // マウスパララックス ＆ 呼吸するような微小な浮遊
@@ -618,12 +640,12 @@ function renderFrame(time) {
     mesh.geometry.computeVertexNormals();
   });
 
-  // 文章のフェードイン／フェードアウト制御 ＆ 静謐な浮遊
+  // 文章のフェードイン／フェードアウト制御 ＆ 静謐な浮遊（手前で消えずにしっかり読める調整）
   for (const mesh of textMeshes) {
     const d = camera.position.z - mesh.position.z; // 正 = まだカメラの前方
-    // 前方380からフェードイン、カメラが通過する直前（d≈40）でフェードアウト
-    const fadeIn  = THREE.MathUtils.smoothstep(380 - d, 0, 160);
-    const fadeOut = THREE.MathUtils.smoothstep(d, 40, 110);
+    // 前方520からふわりと現れ、カメラの真横（d≈15）までしっかり読める
+    const fadeIn  = THREE.MathUtils.smoothstep(520 - d, 0, 200);
+    const fadeOut = THREE.MathUtils.smoothstep(d, 15, 80);
     mesh.material.opacity = Math.max(0, fadeIn * fadeOut);
 
     // ガタつきのない、ゆっくりと呼吸するような滑らかな浮遊
@@ -635,7 +657,7 @@ function renderFrame(time) {
   // UI表示制御
   hint.classList.toggle('hidden', progress > 0.03);
   bar.style.height = `${progress * 100}%`;
-  ending.classList.toggle('visible', progress > 0.91);
+  ending.classList.toggle('visible', progress > 0.88);
 
   renderer.render(scene, camera);
 }
