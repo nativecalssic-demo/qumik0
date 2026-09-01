@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NATIVE CLASSIC | Ensō Vortex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&family=Shippori+Mincho:wght@400;500;600&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-base: #020204;
+    --text-main: #C8C6BE;
+    --accent: #F0EEE9;
+    --gold-subtle: #D4AF37;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: auto; }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    font-family: 'Shippori Mincho', serif;
+    overflow-x: hidden;
+    height: 100%;
+    width: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* スクロール量を確保するためのダミー領域 */
+  #scroll-space { height: 1000vh; }
+
+  #stage {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  #stage canvas { display: block; width: 100%; height: 100%; }
+
+  .vignette {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, rgba(2,2,4,0) 20%, rgba(2,2,4,0.85) 80%, rgba(2,2,4,0.98) 100%);
+    z-index: 2;
+  }
+
+  /* ヘッダー Branding */
+  .brand-header {
+    position: fixed;
+    top: 32px;
+    left: 40px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .brand-title {
+    font-family: 'Cinzel', 'Cardo', serif;
+    font-size: 14px;
+    letter-spacing: 0.45em;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+
+  .brand-sub {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: #8E8C84;
+    margin-top: 6px;
+    opacity: 0.75;
+  }
+
+  /* スクロール誘導 */
+  .scroll-hint {
+    position: fixed;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    font-family: 'Cardo', serif;
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--text-main);
+    opacity: 0.75;
+    transition: opacity 0.8s ease;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .scroll-hint::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 42px;
+    margin: 14px auto 0;
+    background: linear-gradient(to bottom, var(--text-main), transparent);
+    animation: drop 2.2s ease-in-out infinite;
+  }
+
+  @keyframes drop {
+    0%   { transform: scaleY(0); transform-origin: top; }
+    50%  { transform: scaleY(1); transform-origin: top; }
+    51%  { transform: scaleY(1); transform-origin: bottom; }
+    100% { transform: scaleY(0); transform-origin: bottom; }
+  }
+
+  .scroll-hint.hidden { opacity: 0; }
+
+  /* 進行度インジケーター */
+  .progress {
+    position: fixed;
+    right: 36px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 1px;
+    height: 160px;
+    background: rgba(200, 198, 190, 0.15);
+    pointer-events: none;
+  }
+
+  .progress span {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 0%;
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(240, 238, 233, 0.4);
+  }
+
+  /* マテリアル切替（右上の目立たないコントロール） */
+  .material-switcher {
+    position: fixed;
+    top: 32px;
+    right: 40px;
+    z-index: 10;
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-mat {
+    background: rgba(14, 14, 16, 0.6);
+    border: 1px solid rgba(220, 218, 210, 0.15);
+    color: #A6A49C;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    padding: 6px 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+    font-family: 'Shippori Mincho', serif;
+  }
+
+  .btn-mat:hover {
+    color: #FFF;
+    border-color: rgba(240, 238, 233, 0.4);
+    background: rgba(30, 30, 35, 0.8);
+  }
+
+  .btn-mat.active {
+    background: rgba(240, 238, 233, 0.18);
+    border-color: #F0EEE9;
+    color: #FFFFFF;
+    box-shadow: 0 0 10px rgba(240, 238, 233, 0.2);
+  }
+
+  /* 終着点メッセージ */
+  .ending {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1.8s cubic-bezier(0.16, 1, 0.3, 1);
+    background: radial-gradient(ellipse at center, rgba(2,2,4,0) 0%, rgba(2,2,4,0.7) 100%);
+    padding: 0 24px;
+    text-align: center;
+  }
+
+  .ending.visible { opacity: 1; pointer-events: auto; }
+
+  .ending-sub {
+    font-family: 'Cinzel', 'Cardo', serif;
+    font-size: 13px;
+    letter-spacing: 0.55em;
+    color: #A8A69E;
+    text-transform: uppercase;
+  }
+
+  .ending h1 {
+    font-size: clamp(22px, 3.6vw, 44px);
+    font-weight: 500;
+    letter-spacing: 0.28em;
+    color: var(--accent);
+    line-height: 1.6;
+    text-shadow: 0 0 30px rgba(240, 238, 233, 0.25);
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+</head>
+<body>
+
+<div id="scroll-space"></div>
+<div id="stage"></div>
+<div class="vignette"></div>
+
+<div class="brand-header">
+  <div class="brand-title">Native Classic</div>
+  <div class="brand-sub">Ensō Vortex Prototype</div>
+</div>
+
+<div class="material-switcher">
+  <button class="btn-mat active" id="btnMatMercury">水銀クローム</button>
+  <button class="btn-mat" id="btnMatSilver">純銀リキッド</button>
+  <button class="btn-mat" id="btnMatPlatinum">重厚プラチナ</button>
+  <button class="btn-mat" id="btnMatGlass">屈折ガラス</button>
+</div>
+
+<div class="scroll-hint" id="hint">SCROLL</div>
+
+<div class="progress"><span id="bar"></span></div>
+
+<div class="ending" id="ending">
+  <div class="ending-sub">NATIVE CLASSIC</div>
+  <h1>真摯な探求の軌跡を、時代を超える形へ。</h1>
+</div>
+
+<script>
+/* ---------- 基本セットアップ ---------- */
+const BG = 0x020204;
+const simplex = new SimplexNoise();
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(BG);
+scene.fog = new THREE.FogExp2(BG, 0.00028);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 6000);
+camera.position.set(0, 0, 720);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(BG, 1.0);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.35;
+document.getElementById('stage').appendChild(renderer.domElement);
+
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
+
+/* ---------- スタジオHDR環境マップ ---------- */
+function createHighContrastStudioEnv() {
+  const size = 2048;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size / 2;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#020204';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Overhead Key Softbox
+  const keyBoxX = canvas.width * 0.70;
+  const keyBoxY = canvas.height * 0.28;
+  const keyGrad = ctx.createRadialGradient(keyBoxX, keyBoxY, 10, keyBoxX, keyBoxY, 340);
+  keyGrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+  keyGrad.addColorStop(0.35, 'rgba(245, 250, 255, 0.95)');
+  keyGrad.addColorStop(0.65, 'rgba(160, 200, 240, 0.35)');
+  keyGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = keyGrad;
+  ctx.fillRect(keyBoxX - 450, keyBoxY - 450, 900, 900);
+
+  // Sharp Vertical Strip Light
+  const stripX = canvas.width * 0.22;
+  const stripGrad = ctx.createLinearGradient(stripX - 100, 0, stripX + 100, 0);
+  stripGrad.addColorStop(0.0, 'rgba(0, 0, 0, 0)');
+  stripGrad.addColorStop(0.45, 'rgba(255, 255, 255, 0.98)');
+  stripGrad.addColorStop(0.55, 'rgba(255, 255, 255, 0.98)');
+  stripGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = stripGrad;
+  ctx.fillRect(stripX - 150, 0, 300, canvas.height);
+
+  // Side Glint
+  const sideX = canvas.width * 0.45;
+  const sideY = canvas.height * 0.55;
+  const sideGrad = ctx.createRadialGradient(sideX, sideY, 10, sideX, sideY, 280);
+  sideGrad.addColorStop(0.0, 'rgba(220, 235, 255, 0.75)');
+  sideGrad.addColorStop(0.5, 'rgba(120, 150, 180, 0.2)');
+  sideGrad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = sideGrad;
+  ctx.fillRect(sideX - 300, sideY - 300, 600, 600);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  return texture;
+}
+
+const envTexture = createHighContrastStudioEnv();
+scene.environment = envTexture;
+
+/* ---------- ライティング ---------- */
+const ambLight = new THREE.AmbientLight(0x222228, 0.35);
+scene.add(ambLight);
+
+const keyLight = new THREE.DirectionalLight(0xFFFFFF, 2.2);
+keyLight.position.set(350, 550, 450);
+scene.add(keyLight);
+
+const rimLight = new THREE.DirectionalLight(0xCCE0FF, 1.8);
+rimLight.position.set(-500, -50, -350);
+scene.add(rimLight);
+
+const bottomKick = new THREE.PointLight(0x7788AA, 0.6, 1500);
+bottomKick.position.set(0, -380, 220);
+scene.add(bottomKick);
+
+/* ---------- マテリアル定義 ---------- */
+let studioContrast = 3.0;
+
+const matMercuryMirror = new THREE.MeshStandardMaterial({
+  color: new THREE.Color(0xA8B0C0),
+  metalness: 1.0,
+  roughness: 0.005,
+  envMap: envTexture,
+  envMapIntensity: studioContrast * 1.25
+});
+
+const matLiquidSilver = new THREE.MeshStandardMaterial({
+  color: new THREE.Color(0xD8DCE8),
+  metalness: 1.0,
+  roughness: 0.015,
+  envMap: envTexture,
+  envMapIntensity: studioContrast
+});
+
+const matPlatinum = new THREE.MeshPhysicalMaterial({
+  color: new THREE.Color(0xEAE6DF),
+  metalness: 0.95,
+  roughness: 0.04,
+  reflectivity: 0.9,
+  clearcoat: 1.0,
+  clearcoatRoughness: 0.01,
+  envMap: envTexture,
+  envMapIntensity: studioContrast
+});
+
+const matGlass = new THREE.MeshPhysicalMaterial({
+  color: 0xFFFFFF,
+  transmission: 0.95,
+  opacity: 1.0,
+  transparent: true,
+  roughness: 0.0,
+  metalness: 0.0,
+  ior: 1.52,
+  thickness: 42.0,
+  attenuationColor: new THREE.Color(0xF0F4FF),
+  attenuationDistance: 160.0,
+  reflectivity: 0.65,
+  clearcoat: 1.0,
+  clearcoatRoughness: 0.0,
+  envMap: envTexture,
+  envMapIntensity: studioContrast * 0.8
+});
+
+let currentMaterial = matMercuryMirror;
+
+/* ---------- Ensō Vortex（並列円相トンネル） ---------- */
+const NUM_PARALLEL_RINGS = 20;
+const ringSpacing = 220.0;
+const ensoRings = [];
+const ensoGroup = new THREE.Group();
+scene.add(ensoGroup);
+
+for (let k = 0; k < NUM_PARALLEL_RINGS; k++) {
+  const geometry = new THREE.TorusGeometry(160, 42, 56, 160);
+  const origPos = geometry.attributes.position.clone();
+  const origNorm = geometry.attributes.normal.clone();
+
+  const mesh = new THREE.Mesh(geometry, currentMaterial);
+
+  // 手前から奥深く（-Z方向）へ並列配置
+  mesh.userData = {
+    originalPositions: origPos,
+    originalNormals: origNorm,
+    ringIndex: k,
+    baseZ: -k * ringSpacing + 200,
+    phaseShift: k * 0.38,
+    spinPhaseOffset: k * 0.09
+  };
+
+  mesh.position.z = mesh.userData.baseZ;
+  ensoGroup.add(mesh);
+  ensoRings.push(mesh);
+}
+
+/* ---------- 消失点・中心の神秘的な光景 ---------- */
+{
+  const glowCanvas = document.createElement('canvas');
+  glowCanvas.width = glowCanvas.height = 512;
+  const ctx = glowCanvas.getContext('2d');
+  const grad = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+  grad.addColorStop(0.2, 'rgba(228, 227, 223, 0.45)');
+  grad.addColorStop(0.5, 'rgba(180, 190, 210, 0.15)');
+  grad.addColorStop(1, 'rgba(2, 2, 4, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+
+  const tex = new THREE.CanvasTexture(glowCanvas);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthWrite: false, opacity: 0.85, blending: THREE.AdditiveBlending
+  }));
+  glow.scale.set(650, 650, 1);
+  glow.position.set(0, 0, -NUM_PARALLEL_RINGS * ringSpacing - 200);
+  scene.add(glow);
+}
+
+/* ---------- パースに沿って流れてくる確定文章（8節） ---------- */
+const SENTENCES = [
+  '飾られた記号が、溢れる時代。',
+  '効率の先に、何が残るのか。',
+  '風土に宿る、土の記憶。',
+  '二度と描けない、手仕事の痕跡。',
+  '目には見えない、時間の層を視る。',
+  '世代を超えて、未来へ手渡す。',
+  'あなたにとって、本物とは何か。',
+  'この円は、人々の原点を映す鏡。',
+];
+
+function makeTextPlane(text) {
+  const fontSize = 80;
+  const pad = 48;
+  const cvs = document.createElement('canvas');
+  const ctx = cvs.getContext('2d');
+  const font = `500 ${fontSize}px 'Shippori Mincho', serif`;
+  ctx.font = font;
+  const w = Math.ceil(ctx.measureText(text).width) + pad * 2;
+  const h = fontSize + pad * 2;
+  cvs.width = w;
+  cvs.height = h;
+
+  const c2 = cvs.getContext('2d');
+  c2.font = font;
+  c2.fillStyle = '#F0EEE9';
+  c2.textBaseline = 'middle';
+  c2.textAlign = 'center';
+  c2.shadowColor = 'rgba(240, 238, 233, 0.45)';
+  c2.shadowBlur = 24;
+  c2.fillText(text, w / 2, h / 2);
+
+  const tex = new THREE.CanvasTexture(cvs);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, opacity: 0,
+    depthWrite: false, side: THREE.DoubleSide,
+  });
+  const scale = 0.052;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w * scale, h * scale), mat);
+  return mesh;
+}
+
+const textMeshes = [];
+const FIRST_TEXT_Z = 350;
+const TEXT_GAP = 420;
+
+async function buildSentences() {
+  try { await document.fonts.load("500 80px 'Shippori Mincho'"); } catch (e) {}
+  SENTENCES.forEach((s, i) => {
+    const mesh = makeTextPlane(s);
+    const z = FIRST_TEXT_Z - i * TEXT_GAP;
+    // トンネルの内側・中央付近を心地よく漂う位置
+    const side = (i % 2 === 0 ? -1 : 1);
+    const offsetX = side * 16;
+    const offsetY = (i % 2 === 0 ? 6 : -6);
+    mesh.position.set(offsetX, offsetY, z);
+    mesh.rotation.y = side * -0.05;
+    mesh.userData = {
+      baseX: offsetX,
+      baseY: offsetY,
+      index: i
+    };
+    scene.add(mesh);
+    textMeshes.push(mesh);
+  });
+}
+buildSentences();
+
+/* ---------- スクロール制御 ＆ アニメーション ---------- */
+const TOTAL_TRAVEL_Z = -NUM_PARALLEL_RINGS * ringSpacing + 100;
+let targetProgress = 0;
+let progress = 0;
+
+function readScroll() {
+  const max = document.body.scrollHeight - window.innerHeight;
+  targetProgress = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+}
+window.addEventListener('scroll', readScroll, { passive: true });
+readScroll();
+
+const mouse = { x: 0, y: 0 };
+const mouseSmooth = { x: 0, y: 0 };
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+});
+
+// マテリアル切り替えイベント
+function setupMaterialButtons() {
+  const mats = [
+    { btn: 'btnMatMercury', mat: matMercuryMirror },
+    { btn: 'btnMatSilver', mat: matLiquidSilver },
+    { btn: 'btnMatPlatinum', mat: matPlatinum },
+    { btn: 'btnMatGlass', mat: matGlass },
+  ];
+  mats.forEach(item => {
+    document.getElementById(item.btn).addEventListener('click', () => {
+      currentMaterial = item.mat;
+      ensoRings.forEach(ring => ring.material = currentMaterial);
+      document.querySelectorAll('.btn-mat').forEach(b => b.classList.remove('active'));
+      document.getElementById(item.btn).classList.add('active');
+    });
+  });
+}
+setupMaterialButtons();
+
+let timeAcc = 0;
+let spinAcc = 0;
+const spinSpeed = 0.45;
+const fluidSpeed = 0.55;
+const distortAmp = 11.0;
+
+const hint = document.getElementById('hint');
+const bar = document.getElementById('bar');
+const ending = document.getElementById('ending');
+
+function renderFrame(time) {
+  // スムーズ慣性追従
+  progress += (targetProgress - progress) * 0.055;
+
+  // カメラをスクロール量に応じてトンネル深層へ前進
+  const startCamZ = 720;
+  const targetCamZ = startCamZ + progress * (TOTAL_TRAVEL_Z - startCamZ + 400);
+  camera.position.z = targetCamZ;
+
+  // マウスパララックス ＆ 呼吸するような微小な浮遊
+  mouseSmooth.x += (mouse.x - mouseSmooth.x) * 0.04;
+  mouseSmooth.y += (mouse.y - mouseSmooth.y) * 0.04;
+  camera.position.x = mouseSmooth.x * 24 + Math.sin(time * 0.0008) * 3;
+  camera.position.y = -mouseSmooth.y * 18 + Math.cos(time * 0.001) * 3;
+  camera.lookAt(mouseSmooth.x * 8, -mouseSmooth.y * 6, targetCamZ - 800);
+
+  // 時間蓄積（流動 ＆ 左回転）
+  timeAcc += 0.016 * fluidSpeed;
+  spinAcc += 0.008 * spinSpeed; // 左回転（反時計回り）
+
+  // 各円相リングの波立ち ＆ スピン
+  ensoRings.forEach((mesh) => {
+    const ringZRotation = spinAcc + mesh.userData.spinPhaseOffset;
+    mesh.rotation.z = ringZRotation;
+
+    const positions = mesh.geometry.attributes.position;
+    const originals = mesh.userData.originalPositions.array;
+    const normals = mesh.userData.originalNormals.array;
+    const phase = mesh.userData.phaseShift;
+
+    const count = positions.count;
+    const t = timeAcc * 1.2 + phase;
+
+    for (let i = 0; i < count; i++) {
+      const i3 = i * 3;
+      const ox = originals[i3];
+      const oy = originals[i3 + 1];
+      const oz = originals[i3 + 2];
+
+      const nx = normals[i3];
+      const ny = normals[i3 + 1];
+      const nz = normals[i3 + 2];
+
+      const theta = Math.atan2(oy, ox);
+
+      const wave1 = Math.sin(theta * 2.0 + t) * 0.65;
+      const wave2 = Math.cos(theta * 3.0 - t * 0.75) * 0.35;
+      const harmonicWave = wave1 + wave2;
+
+      const lowNoise = simplex.noise3D(ox * 0.002, oy * 0.002, t * 0.3) * 0.35;
+      const disp = (harmonicWave + lowNoise) * distortAmp;
+      const zTwist = Math.sin(theta * 2.0 + t * 0.9) * (distortAmp * 0.5);
+
+      positions.setXYZ(
+        i,
+        ox + nx * disp,
+        oy + ny * disp,
+        oz + nz * disp + zTwist
+      );
+    }
+
+    positions.needsUpdate = true;
+    mesh.geometry.computeVertexNormals();
+  });
+
+  // 文章のフェードイン／フェードアウト制御 ＆ 静謐な浮遊
+  for (const mesh of textMeshes) {
+    const d = camera.position.z - mesh.position.z; // 正 = まだカメラの前方
+    // 前方380からフェードイン、カメラが通過する直前（d≈40）でフェードアウト
+    const fadeIn  = THREE.MathUtils.smoothstep(380 - d, 0, 160);
+    const fadeOut = THREE.MathUtils.smoothstep(d, 40, 110);
+    mesh.material.opacity = Math.max(0, fadeIn * fadeOut);
+
+    // ガタつきのない、ゆっくりと呼吸するような滑らかな浮遊
+    const idx = mesh.userData.index || 0;
+    mesh.position.y = mesh.userData.baseY + Math.sin(time * 0.0009 + idx * 0.7) * 1.8;
+    mesh.position.x = mesh.userData.baseX + Math.cos(time * 0.0007 + idx * 0.5) * 1.2;
+  }
+
+  // UI表示制御
+  hint.classList.toggle('hidden', progress > 0.03);
+  bar.style.height = `${progress * 100}%`;
+  ending.classList.toggle('visible', progress > 0.91);
+
+  renderer.render(scene, camera);
+}
+
+function animate(t) {
+  requestAnimationFrame(animate);
+  renderFrame(t);
+}
+requestAnimationFrame(animate);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
